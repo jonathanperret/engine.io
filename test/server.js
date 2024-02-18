@@ -2701,6 +2701,37 @@ describe("server", () => {
         });
       });
 
+      it("should execute when message sent during polling upgrade window", (done) => {
+        const engine = listen({ allowUpgrades: true }, (port) => {
+          const socket = new ClientSocket(`ws://localhost:${port}`, {
+            transports: ["polling", "websocket"],
+          });
+          let i = 0;
+          let j = 0;
+
+          engine.on("connection", (conn) => {
+            // This is the only difference from the previous test:
+            // we send the message precisely when the socket tells us
+            // the upgrade is in progress
+            conn.on("upgrading", () => {
+              conn.send("a", (transport) => {
+                i++;
+              });
+            });
+          });
+          socket.on("open", () => {
+            socket.on("message", (msg) => {
+              j++;
+            });
+          });
+
+          setTimeout(() => {
+            expect(i).to.be(j);
+            done();
+          }, 100);
+        });
+      });
+
       it("should execute when message sent (websocket)", (done) => {
         const engine = listen({ allowUpgrades: false }, (port) => {
           const socket = new ClientSocket(`ws://localhost:${port}`, {
